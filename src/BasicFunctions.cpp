@@ -89,10 +89,10 @@ bool StringCompare(std::string stringIn, std::string stringBase)
 	for (int unsigned i = 0; i < stringBase.length(); i++)
 	{
 		if (stringIn[i] != stringBase[i] && 
-			stringIn[i] != stringBase[i] + 32 && 	//if the input is a upper case
-			stringIn[i] + 32 != stringBase[i]		//if the intput is a lower case
+			stringIn[i] != stringBase[i] + 32 && 	//if the input is upper case
+			stringIn[i] + 32 != stringBase[i]		//if the intput is lower case
 			)
-		{
+		{ 
 			return false;
 		}
 	}

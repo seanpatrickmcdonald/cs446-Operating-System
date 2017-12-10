@@ -23,6 +23,7 @@ int main(int argc, char **argv)
     ResourceHandler *ResourceObject = new ResourceHandler;
 
     std::vector<Application> apps;
+    std::vector<Application> doneApps;
 	ConfigHandler ConfigObject(argv, apps, logHandlerObject, MemoryObject, ResourceObject);
 
 
@@ -35,7 +36,7 @@ int main(int argc, char **argv)
         simStartString.append(std::to_string(getTime()));
         simStartString.append(" - Simulator program starting");
 
-        if (ConfigObject.schedulingAlgorithm == "SJF")
+        if (ConfigObject.schedulingAlgorithm == "STR")
         {
             simStartString.append(" using ");
             simStartString.append(ConfigObject.schedulingAlgorithm);
@@ -45,19 +46,8 @@ int main(int argc, char **argv)
             sortSJF(apps);
         }
 
-        else if (ConfigObject.schedulingAlgorithm == "PS")
+        else if (ConfigObject.schedulingAlgorithm == "RR")
         {
-            simStartString.append(" using ");
-            simStartString.append(ConfigObject.schedulingAlgorithm);
-            simStartString.append(" sorting");
-
-            //Do the sorting by Priority
-            sortPS(apps);
-        }
-
-        else if (ConfigObject.schedulingAlgorithm == "FIFO")
-        {
-            //no sorting to do
             simStartString.append(" using ");
             simStartString.append(ConfigObject.schedulingAlgorithm);
             simStartString.append(" sorting");
@@ -69,17 +59,43 @@ int main(int argc, char **argv)
             errorString.append(ConfigObject.schedulingAlgorithm);
 
             logHandlerObject->Log(errorString);
-            logHandlerObject->Log("Please use one of these: FIFO, PS, SJF");
-            logHandlerObject->Log("Using FIFO...\n");
+            logHandlerObject->Log("Please use one of these: STR, RR");
+            logHandlerObject->Log("Using RR...\n");
         }
-
-
 
         logHandlerObject->Log(simStartString);
 
+        //Initialize the apps
         for (unsigned int i = 0; i < apps.size(); i++)
         {
-            apps[i].Run(ConfigObject.cycleTimeVector);
+            apps[i].Initialize(ConfigObject.cycleTimeVector);
+        }
+
+        //Run the apps
+        unsigned int currentAppSize = apps.size();
+        while(apps.size() > 0)
+        {
+            for (unsigned int i = 0; i < currentAppSize; i++)
+            {
+                if (apps[i].Run(ConfigObject.cycleTimeVector) == 0)
+                {
+                    doneApps.push_back(apps[i]);
+                    apps.erase(apps.begin() + i);
+                    currentAppSize--;
+                    i--;
+                }
+            }
+        }
+
+        std::cout << "\nWaiting for I/O threads to complete..\n";
+
+        //Wait for I/O threads to complete
+        for (unsigned int i = 0; i < doneApps.size(); i++)
+        {
+            for (unsigned int j = 0; j < doneApps[i].IOthreads.size(); j++)
+            {
+                pthread_join(doneApps[i].IOthreads[j], NULL);
+            }
         }
 
 
@@ -120,6 +136,7 @@ void InitializeGlobals()
     configCommandArray[14] = "Printer quantity";
     configCommandArray[15] = "Hard drive quantity";
     configCommandArray[16] = "CPU Scheduling Code";
+    configCommandArray[17] = "Quantum";
 }
 
 #endif

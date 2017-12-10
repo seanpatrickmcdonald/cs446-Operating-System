@@ -117,6 +117,13 @@ ConfigHandler::ConfigHandler(char **argv, std::vector<Application> &apps, LogHan
 				schedulingAlgorithm = getAfterColon(configVector[i]);
             }
 
+            //Quantum Number
+            else if (StringCompare(configVector[i], configCommandArray[Quantum])
+            	|| StringCompare(configVector[i], "Processor Quantum"))
+            {
+            	Application::quantum = StringToInt(getAfterColon(configVector[i]));
+            }
+
 	    	//Otherwise, we might have a Configuration Cyle Parameter
 	    	else
 	    	{
@@ -127,7 +134,7 @@ ConfigHandler::ConfigHandler(char **argv, std::vector<Application> &apps, LogHan
 	    				std::string processTimeString = getAfterColon(configVector[i]);
 	    				int cycles = StringToInt(processTimeString);
 
-	    				cycleTimeVector[j] = cycles;	    				
+	    				cycleTimeVector[j] = cycles;	 				
 	    			}
 	    		}
 	    	}  
@@ -271,6 +278,7 @@ bool ConfigHandler::ReadMetaFile(std::vector<Application> &apps, std::string &me
 	{
         std::string current_line = metaFileVector[line_num];
 
+
 		if (StringCompare(current_line, "Start"))
 		{
 			continue;
@@ -314,6 +322,8 @@ bool ConfigHandler::ReadMetaFile(std::vector<Application> &apps, std::string &me
 
 				    std::string processString;
 
+
+
 				    if (current_line[i] == '(')
 				    {
 					    i++;
@@ -348,6 +358,9 @@ bool ConfigHandler::ReadMetaFile(std::vector<Application> &apps, std::string &me
 
 						    continue;
 					    }
+
+					    //Get our current config Command
+						configCommand currentConfig = ConfigHandler::StringToConfigCommand(processString);
 
 					    i++;
 
@@ -385,10 +398,12 @@ bool ConfigHandler::ReadMetaFile(std::vector<Application> &apps, std::string &me
                         	}
                         }
 
-					    Process dummyProcess = {
+                        int runTime = processCycles * cycleTimeVector[currentConfig];
+                         Process dummyProcess = {
 						    .processType = processCode,
 						    .processName = processString,
-						    .numCycles = processCycles
+						    .numCycles = processCycles,
+						    .runTime = runTime
 					    };
 
 					    if (processCode != S && processCode != A && current_app != nullptr)

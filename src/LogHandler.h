@@ -14,6 +14,8 @@ public:
 
 	bool logToMonitor;
 	bool logToFile;
+	
+    pthread_mutex_t coutMutex;
 
 	void Log(std::string outputString);
 	void PrintLog();

@@ -17,20 +17,28 @@ public:
     Application(int processNum, LogHandler *logHandlerIn, MemoryHandler *MemoryObjectIn, ResourceHandler *ResourceObjectIn);
     ~Application();
 
+    void Initialize(std::vector<unsigned int>);
     int Run(std::vector<unsigned int>);
 
     LogHandler *logHandlerObject;
     MemoryHandler *MemoryObject;
     ResourceHandler *ResourceObject;
 
-    void waitOutput(unsigned int waitTime, std::string outputString1, std::string outputString2);
+    int waitOutput(unsigned int waitTime, std::string outputString1, std::string outputString2, int max = -1
+        , std::string intString = "asdf");
 
     std::vector<Process> processVector;
     std::queue<Process> processQueue;
 
+    static int quantum;
+
     std::string processNumber;
     unsigned int num_io_tasks, num_tasks;
+
+
+    std::vector<pthread_t> IOthreads;
 };
+
 
 /*************************************************************
 
@@ -46,7 +54,7 @@ struct threadStruct
 	std::string outputString2;
 	unsigned int waitTime;	
     pthread_mutex_t *mutex;
-    Application app;
+    Application *app;
 };
 
 /*************************************************************
@@ -57,7 +65,7 @@ struct threadStruct
 This function is for the I/O thread
 */
 
-void *threadProgram(void* arg);
+void *threadProgramIO(void* arg);
 
 
 

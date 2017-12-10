@@ -26,7 +26,8 @@ enum configCommand
     MemoryBlock = 13, 
     PrinterQuan = 14,
     HardDriveQuan = 15,
-    Scheduling = 16
+    Scheduling = 16,
+    Quantum = 17
 };
 
 class ConfigHandler
@@ -44,7 +45,7 @@ public:
     void buildCommandVector(std::string stringIn, int lineNumber, Application &app);
 
     bool filesRead;
-    static const unsigned int numConfigs = 17;
+    static const unsigned int numConfigs = 18;
     std::vector<std::string> descriptorArray[6];
 
     std::vector<unsigned int> cycleTimeVector;

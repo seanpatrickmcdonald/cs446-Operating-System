@@ -4,6 +4,8 @@ LogHandler::LogHandler()
 {
 	logToMonitor = false;
 	logToFile = false;
+
+    pthread_mutex_init(&coutMutex, NULL);
 }
 
 LogHandler::~LogHandler()
@@ -15,7 +17,9 @@ void LogHandler::Log(std::string outputString)
 {
 	if (logToMonitor)
 	{
-		std::cout << outputString << std::endl;
+		pthread_mutex_lock(&coutMutex);
+		std::cout.flush() << outputString << std::endl;
+		pthread_mutex_unlock(&coutMutex);
 	}
 
 	if (logToFile)

@@ -1,5 +1,7 @@
 #include "Application.h"
 
+int Application::quantum = 0;
+
 Application::Application()
 {
     
@@ -19,23 +21,35 @@ Application::~Application()
 
 }
 
-
 /*************************************************************
 
-	Run
+	Initalize
 
 **************************************************************
-Run through app, will empty vectors
+Initalize the queue of the app
 */
 
-int Application::Run(std::vector<unsigned int> cycleTimeVector)
-{    
+void Application::Initialize(std::vector<unsigned int> cycleTimeVector)
+{
     //Load all processes and set to ready
 	for (unsigned int i = 0; i < processVector.size(); i++)
 	{
 		processVector[i].controlBlock.processState = READY;
 		processQueue.push(processVector[i]);
 	}
+}
+
+/*************************************************************
+
+	Run
+
+**************************************************************
+Run through app
+*/
+
+int Application::Run(std::vector<unsigned int> cycleTimeVector)
+{    
+	int timeLeft = Application::quantum;
 
     std::string string1 = "OS: preparing process ";
     string1.append(processNumber);
@@ -47,50 +61,74 @@ int Application::Run(std::vector<unsigned int> cycleTimeVector)
 
     while (processQueue.empty() == false)
 	{
-		Process currentProcess = processQueue.front();
+		Process *currentProcess = &processQueue.front();
 		
 		//set process to running
 		processQueue.front().controlBlock.processState = RUNNING;
 
-		if (currentProcess.processType == P)
+
+        std::string startString = "Process ";
+        startString.append(processNumber);
+        startString.append(": ");
+
+        std::string endString = "Process ";
+        endString.append(processNumber);
+        endString.append(": ");
+
+        std::string interruptString = "Process ";
+        interruptString.append(processNumber);
+        interruptString.append(": ");
+
+		if (currentProcess->processType == P)
 		{
-            std::string startString = "Process ";
-            startString.append(processNumber);
-            startString.append(": start processing action");
+            startString.append("start processing action");
 
-            std::string endString = "Process ";
-            endString.append(processNumber);
-            endString.append(": end processing action");
+            endString.append("end processing action");
 
+            interruptString.append("interrupted processing action");
+		}
 
-			waitOutput(cycleTimeVector[Processor] * currentProcess.numCycles,
-            startString, endString);
+		else if (currentProcess->processType == M)
+		{
+			if (currentProcess->processName == "block")
+			{
+                startString.append("memory blocking");
+
+                endString.append("memory blocking");
+
+            	interruptString.append("interrupted memory blocking");
+			}
+
+			else if (currentProcess->processName == "allocate")
+			{
+                startString.append("allocating memory");
+
+				endString.append("memory allocated at 0x");
+				endString.append(MemoryObject->AllocateMemory());
+
+            	interruptString.append("interrupted allocating memory");
+			}
 		}
 
 		//if it's an input or output
-		else if (currentProcess.processType == I || currentProcess.processType == O)
+		else if (currentProcess->processType == I || currentProcess->processType == O)
 		{
-			std::string startString = "Process ";
-            startString.append(processNumber);
-            startString.append(": start ");
+			startString.append("start ");
+			startString.append(currentProcess->processName);
 
-			std::string endString = "Process ";
-            endString.append(processNumber);
-            endString.append(": end ");
+            endString.append("end ");
+			endString.append(currentProcess->processName);
 
-			startString.append(currentProcess.processName);
-			endString.append(currentProcess.processName);
 
-			pthread_t threadInt;
-			configCommand currentConfig = ConfigHandler::StringToConfigCommand(currentProcess.processName);
+			configCommand currentConfig = ConfigHandler::StringToConfigCommand(currentProcess->processName);
 
-			if (currentProcess.processType == I)
+			if (currentProcess->processType == I)
 			{
 				startString.append(" input ");
 				endString.append(" input ");
 			}
 
-			else if (currentProcess.processType == O)
+			else if (currentProcess->processType == O)
 			{
 				startString.append(" output ");
 				endString.append(" output ");
@@ -114,7 +152,7 @@ int Application::Run(std::vector<unsigned int> cycleTimeVector)
 			else if (currentConfig == HardDrive)
 			{
                 resourceNumber = ResourceObject->GetAvailableHdd();
- 				currentResourceMutex = &ResourceObject->prtMutexes[resourceNumber];
+ 				currentResourceMutex = &ResourceObject->hddMutexes[resourceNumber];
 
 				startString.append("on HDD ");
                 startString.append(IntToString(resourceNumber));
@@ -136,67 +174,55 @@ int Application::Run(std::vector<unsigned int> cycleTimeVector)
                 //std::cout << "Monitor mutex: " << currentResourceMutex << std::endl;
 			}
 
-			threadStruct passStruct = {
-			startString,
-			endString,
-			cycleTimeVector[currentConfig] * currentProcess.numCycles,
-            currentResourceMutex
-			};
+			threadStruct *passStruct = new threadStruct(); 
 
-			pthread_create(&threadInt, NULL, threadProgram, &passStruct);
-			pthread_join(threadInt, NULL);			
+			passStruct->outputString1 = startString;
+			passStruct->outputString2 = endString;
+			passStruct->waitTime = currentProcess->runTime;
+            passStruct->mutex = currentResourceMutex;
+            passStruct->app = this;
+			
+
+    		pthread_t threadInt;
+			pthread_create(&threadInt, NULL, threadProgramIO, passStruct);
+			IOthreads.push_back(threadInt);
+
+			processQueue.front().controlBlock.processState = TERMINATED;
+			processQueue.pop();		
+
+			num_io_tasks--, num_tasks--;
 		}
 
-		else if (currentProcess.processType == M)
+		//Run quantum time, 
+		if (currentProcess->processType != I && currentProcess->processType != O)
 		{
-			if (currentProcess.processName == "block")
+			int timeRun = waitOutput(currentProcess->runTime, startString, endString, timeLeft, interruptString);
+
+			currentProcess->runTime -= timeRun;
+			timeLeft -= timeRun;
+
+			if (currentProcess->runTime <= 0)
 			{
-                std::string startString = "Process ";
-                startString.append(processNumber);
-                startString.append(": start memory blocking");
-
-                std::string endString = "Process ";
-                endString.append(processNumber);
-                endString.append(": end memory blocking");
-
-				waitOutput(cycleTimeVector[Memory] * currentProcess.numCycles,
-				startString, endString);
+				processQueue.front().controlBlock.processState = TERMINATED;
+				processQueue.pop();
+				num_tasks--;
 			}
 
-			else if (currentProcess.processName == "allocate")
+			if (timeLeft <= 0)
 			{
-                std::string allocStartString = "Process ";
-                allocStartString.append(processNumber);
-                allocStartString.append(": allocating memory");
-
-				std::string allocEndString = "Process ";
-                allocEndString.append(processNumber);
-				allocEndString.append(": memory allocated at 0x");
-				allocEndString.append(MemoryObject->AllocateMemory());
-
-				waitOutput(cycleTimeVector[Memory] * currentProcess.numCycles,
-				allocStartString, allocEndString);
+				return -1;
 			}
 		}
-
-		processQueue.front().controlBlock.processState = TERMINATED;
-		processQueue.pop();
 	}
 
 	std::string appEndString;
 	appEndString.append(std::to_string(getTime()));
-	appEndString.append(" - OS: removing process ");
+	appEndString.append(" - OS: Process ");
 	appEndString.append(processNumber);
+	appEndString.append(" completed.");
 
 	logHandlerObject->Log(appEndString);
 
-/*
-	std::string endOSString;
-	endOSString.append(std::to_string(getTime()));
-	endOSString.append(" - Simulator program ending");
-
-	logHandlerObject->Log(endOSString);
-*/
     return 0;
 }
 
@@ -211,15 +237,42 @@ int Application::Run(std::vector<unsigned int> cycleTimeVector)
 This function takes in two strings, and prints the time it takes to perform the operation
 */
 
-void Application::waitOutput(unsigned int waitTime, std::string outputString1, std::string outputString2)
+int Application::waitOutput(unsigned int waitTime, std::string outputString1, std::string outputString2, int max,
+	std::string intString)
 {
 	std::string startString;
 	startString.append(std::to_string(getTime()));
 	startString.append(" - ");
 	startString.append(outputString1);
 
+	logHandlerObject->Log(startString);
 
-	wait(waitTime);
+	if (max >= 0)
+	{
+		if ((int)waitTime <= max)
+		{
+			wait(waitTime);
+		}
+
+		else
+		{
+			wait(max);
+
+			std::string endString;
+			endString.append(std::to_string(getTime()));
+			endString.append(" - ");
+			endString.append(intString);
+
+			logHandlerObject->Log(endString);
+
+			return max;
+		}
+	}
+
+	else
+	{
+		wait(waitTime);
+	}
 
 
 	std::string endString;
@@ -227,8 +280,9 @@ void Application::waitOutput(unsigned int waitTime, std::string outputString1, s
 	endString.append(" - ");
 	endString.append(outputString2);
 
-	logHandlerObject->Log(startString);
 	logHandlerObject->Log(endString);
+
+	return (int)waitTime;
 }
 
 
@@ -236,19 +290,19 @@ void Application::waitOutput(unsigned int waitTime, std::string outputString1, s
 
 /*************************************************************
 
-	threadProgram
+	threadProgramIO
 
 **************************************************************
 This function is for the I/O thread
 */
 
-void *threadProgram(void* arg)
+void *threadProgramIO(void* arg)
 {
 	threadStruct *argStruct = (threadStruct*)arg;
     
 	pthread_mutex_lock(argStruct->mutex);
     //std::cout << "Locked mutex: " << argStruct->mutex << std::endl;
-	argStruct->app.waitOutput(argStruct->waitTime, argStruct->outputString1, argStruct->outputString2);
+	argStruct->app->waitOutput(argStruct->waitTime, argStruct->outputString1, argStruct->outputString2);
     pthread_mutex_unlock(argStruct->mutex);
     //std::cout << "Unlocked mutex: " << argStruct->mutex << std::endl;
 

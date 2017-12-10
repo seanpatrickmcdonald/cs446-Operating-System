@@ -33,6 +33,7 @@ struct Process
 	ProcessCode processType;
 	std::string processName;
 	int numCycles;
+	int runTime;
 	PCB controlBlock;
 };
 
